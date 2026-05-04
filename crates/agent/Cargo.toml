@@ -1,0 +1,19 @@
+[package]
+name    = "nxc-agent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nxc-config   = { path = "../config" }
+nxc-provider = { path = "../provider" }
+nxc-tools    = { path = "../tools" }
+nxc-mcp      = { path = "../mcp" }
+tokio        = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+anyhow       = { workspace = true }
+directories  = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio    = { workspace = true, features = ["full"] }
