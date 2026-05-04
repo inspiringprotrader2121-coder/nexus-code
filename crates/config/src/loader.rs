@@ -24,58 +24,88 @@ pub fn load() -> Result<Config> {
     Ok(apply_env_overrides(cfg))
 }
 
+/// Intermediate struct for TOML deserialization — all fields optional so we
+/// can distinguish "field was set" from "field was absent".
+#[derive(serde::Deserialize, Default)]
+struct PartialConfig {
+    provider: Option<PartialProvider>,
+    agent:    Option<PartialAgent>,
+    tools:    Option<PartialTools>,
+    mcp:      Option<PartialMcp>,
+    search:   Option<PartialSearch>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct PartialProvider {
+    api_key:  Option<String>,
+    model:    Option<String>,
+    base_url: Option<String>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct PartialAgent {
+    approval_mode: Option<crate::model::ApprovalMode>,
+    max_turns:     Option<u32>,
+    context_limit: Option<u32>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct PartialTools {
+    approval: Option<std::collections::HashMap<String, crate::model::ApprovalMode>>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct PartialMcp {
+    servers: Option<Vec<crate::model::McpServer>>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct PartialSearch {
+    serpapi_key: Option<String>,
+}
+
+fn apply_partial(base: &mut Config, overlay: PartialConfig) {
+    if let Some(p) = overlay.provider {
+        if let Some(v) = p.api_key  { base.provider.api_key  = v; }
+        if let Some(v) = p.model    { base.provider.model    = v; }
+        if let Some(v) = p.base_url { base.provider.base_url = v; }
+    }
+    if let Some(a) = overlay.agent {
+        if let Some(v) = a.approval_mode { base.agent.approval_mode = v; }
+        if let Some(v) = a.max_turns     { base.agent.max_turns     = v; }
+        if let Some(v) = a.context_limit { base.agent.context_limit = v; }
+    }
+    if let Some(t) = overlay.tools {
+        if let Some(map) = t.approval { base.tools.approval.extend(map); }
+    }
+    if let Some(m) = overlay.mcp {
+        if let Some(servers) = m.servers { base.mcp.servers.extend(servers); }
+    }
+    if let Some(s) = overlay.search {
+        if let Some(v) = s.serpapi_key { base.search.serpapi_key = Some(v); }
+    }
+}
+
 pub fn load_from_path(global_path: &str, project_path: Option<&str>) -> Result<Config> {
     let mut cfg = Config::default();
 
     if !global_path.is_empty() {
         if let Ok(text) = fs::read_to_string(global_path) {
-            let parsed: Config = toml::from_str(&text)
+            let parsed: PartialConfig = toml::from_str(&text)
                 .with_context(|| format!("parsing {global_path}"))?;
-            merge_into(&mut cfg, parsed);
+            apply_partial(&mut cfg, parsed);
         }
     }
 
     if let Some(p) = project_path {
         if let Ok(text) = fs::read_to_string(p) {
-            let parsed: Config = toml::from_str(&text)
+            let parsed: PartialConfig = toml::from_str(&text)
                 .with_context(|| format!("parsing {p}"))?;
-            merge_into(&mut cfg, parsed);
+            apply_partial(&mut cfg, parsed);
         }
     }
 
     Ok(cfg)
-}
-
-fn merge_into(base: &mut Config, overlay: Config) {
-    // provider
-    if !overlay.provider.api_key.is_empty() {
-        base.provider.api_key = overlay.provider.api_key;
-    }
-    if overlay.provider.model != Config::default().provider.model {
-        base.provider.model = overlay.provider.model;
-    }
-    if overlay.provider.base_url != Config::default().provider.base_url {
-        base.provider.base_url = overlay.provider.base_url;
-    }
-    // agent
-    if overlay.agent.approval_mode != ApprovalMode::Auto {
-        base.agent.approval_mode = overlay.agent.approval_mode;
-    }
-    // only override scalar agent fields if they differ from defaults
-    if overlay.agent.max_turns != 50 {
-        base.agent.max_turns = overlay.agent.max_turns;
-    }
-    if overlay.agent.context_limit != 128_000 {
-        base.agent.context_limit = overlay.agent.context_limit;
-    }
-    // tools: merge approval maps
-    base.tools.approval.extend(overlay.tools.approval);
-    // mcp: append servers
-    base.mcp.servers.extend(overlay.mcp.servers);
-    // search
-    if overlay.search.serpapi_key.is_some() {
-        base.search.serpapi_key = overlay.search.serpapi_key;
-    }
 }
 
 pub fn apply_env_overrides(mut cfg: Config) -> Config {
@@ -114,10 +144,15 @@ model   = "openai/gpt-4o"
 
     #[test]
     fn env_var_overrides_toml() {
-        std::env::set_var("NXC_API_KEY", "sk-from-env");
-        let cfg = apply_env_overrides(Config::default());
-        assert_eq!(cfg.provider.api_key, "sk-from-env");
-        std::env::remove_var("NXC_API_KEY");
+        let dir = tempdir().unwrap();
+        let cfg_path = dir.path().join("config.toml");
+        fs::write(&cfg_path, "[provider]\napi_key = \"sk-from-toml\"\n").unwrap();
+
+        temp_env::with_var("NXC_API_KEY", Some("sk-from-env"), || {
+            let base = load_from_path(cfg_path.to_str().unwrap(), None).unwrap();
+            let cfg  = apply_env_overrides(base);
+            assert_eq!(cfg.provider.api_key, "sk-from-env");
+        });
     }
 
     #[test]

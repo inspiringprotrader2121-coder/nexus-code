@@ -1248,6 +1248,7 @@ dependencies = [
  "directories",
  "serde",
  "serde_json",
+ "temp-env",
  "tempfile",
  "thiserror 2.0.18",
  "toml",
@@ -1961,6 +1962,15 @@ checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "temp-env"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6972026b12a7e87227c91b9669cb96ed17d1ca8482c4fd0dba6426329a04963e"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]
