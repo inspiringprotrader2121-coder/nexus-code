@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub provider: ProviderConfig,
@@ -34,9 +34,14 @@ impl Default for ProviderConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum ApprovalMode { Auto, Ask, Yolo }
+pub enum ApprovalMode {
+    #[default]
+    Auto,
+    Ask,
+    Yolo,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AgentConfig {
@@ -57,9 +62,6 @@ impl Default for AgentConfig {
     }
 }
 
-impl Default for ApprovalMode {
-    fn default() -> Self { ApprovalMode::Auto }
-}
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ToolsConfig {
@@ -88,17 +90,6 @@ pub struct SearchConfig {
     pub serpapi_key: Option<String>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            provider: ProviderConfig::default(),
-            agent:    AgentConfig::default(),
-            tools:    ToolsConfig::default(),
-            mcp:      McpConfig::default(),
-            search:   SearchConfig::default(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
