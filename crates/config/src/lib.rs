@@ -1,1 +1,2 @@
-// stub
+mod model;
+pub use model::*;
