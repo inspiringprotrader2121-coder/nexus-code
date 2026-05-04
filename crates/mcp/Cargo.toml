@@ -1,0 +1,16 @@
+[package]
+name    = "nxc-mcp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nxc-tools   = { path = "../tools" }
+nxc-config  = { path = "../config" }
+tokio       = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+anyhow      = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
