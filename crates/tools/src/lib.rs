@@ -24,6 +24,7 @@ pub struct ToolResult {
 impl ToolResult {
     pub fn ok(content: impl Into<String>)  -> Self { Self { content: content.into(), is_error: false } }
     pub fn err(content: impl Into<String>) -> Self { Self { content: content.into(), is_error: true  } }
+    pub fn is_error(&self) -> bool { self.is_error }
 }
 
 #[async_trait]
