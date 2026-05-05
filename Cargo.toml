@@ -13,7 +13,7 @@ reedline     = "0.35"
 crossterm    = "0.27"
 ignore       = "0.4"
 similar      = { version = "2", features = ["text"] }
-git2         = "0.19"
+git2         = "0.20"
 directories  = "5"
 async-trait  = "0.1"
 anyhow       = "1"
