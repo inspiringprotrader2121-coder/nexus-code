@@ -1,0 +1,6 @@
+.worktrees/
+worktrees/
+**/.DS_Store
+.build/
+rust/target/
+.nexus/sessions/
