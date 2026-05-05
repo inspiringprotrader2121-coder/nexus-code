@@ -1,0 +1,23 @@
+[package]
+name    = "nxc-tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nxc-config  = { path = "../config" }
+tokio       = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+anyhow      = { workspace = true }
+async-trait = { workspace = true }
+ignore      = { workspace = true }
+similar     = { workspace = true }
+git2        = { workspace = true }
+base64      = { workspace = true }
+reqwest     = { workspace = true }
+glob        = { workspace = true }
+urlencoding = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio    = { workspace = true, features = ["full"] }

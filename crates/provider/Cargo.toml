@@ -1,0 +1,18 @@
+[package]
+name    = "nxc-provider"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nxc-config   = { path = "../config" }
+tokio        = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+reqwest      = { workspace = true }
+anyhow       = { workspace = true }
+futures-util = { workspace = true }
+directories  = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+tokio    = { workspace = true, features = ["full"] }

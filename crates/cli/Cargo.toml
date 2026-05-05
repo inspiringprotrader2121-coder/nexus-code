@@ -1,0 +1,25 @@
+[package]
+name    = "nxc"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "nxc"
+path = "src/main.rs"
+
+[dependencies]
+nxc-config   = { path = "../config" }
+nxc-provider = { path = "../provider" }
+nxc-agent    = { path = "../agent" }
+nxc-tools    = { path = "../tools" }
+nxc-mcp      = { path = "../mcp" }
+tokio        = { workspace = true }
+clap         = { workspace = true }
+reedline     = { workspace = true }
+crossterm    = { workspace = true }
+anyhow       = { workspace = true }
+serde_json   = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+tempfile   = { workspace = true }
