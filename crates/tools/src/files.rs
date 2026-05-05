@@ -58,10 +58,13 @@ impl Tool for ApplyPatch {
     async fn execute(&self, args: Value) -> Result<ToolResult> {
         let path  = args["path"].as_str().unwrap_or("");
         let patch = args["patch"].as_str().unwrap_or("");
-        let original = fs::read_to_string(path).unwrap_or_default();
+        let original = match fs::read_to_string(path) {
+            Ok(s)  => s,
+            Err(e) => return Ok(ToolResult::err(format!("apply_patch: cannot read {path}: {e}"))),
+        };
+        let trailing_newline = original.ends_with('\n');
         let is_diff = patch.lines().any(|l| l.starts_with("---") || l.starts_with("+++"));
-        let result = if is_diff {
-            // Apply unified diff heuristically: reconstruct from context and additions
+        let mut result = if is_diff {
             let orig_lines: Vec<&str> = original.lines().collect();
             let mut out_lines: Vec<String> = Vec::new();
             let mut orig_idx: usize = 0;
@@ -73,15 +76,12 @@ impl Tool for ApplyPatch {
                     continue;
                 }
                 if line.starts_with("@@") {
-                    // Parse @@ -start,count +start,count @@
-                    // e.g. "@@ -3,4 +3,5 @@"
                     let nums: Vec<&str> = line.split_whitespace().collect();
                     if nums.len() >= 3 {
                         let orig_range = nums[1].trim_start_matches('-');
                         let orig_start_str = orig_range.split(',').next().unwrap_or("1");
                         hunk_orig_start = orig_start_str.parse::<usize>().unwrap_or(1).saturating_sub(1);
                     }
-                    // Flush lines before this hunk from original
                     while orig_idx < hunk_orig_start {
                         if orig_idx < orig_lines.len() {
                             out_lines.push(orig_lines[orig_idx].to_string());
@@ -95,26 +95,25 @@ impl Tool for ApplyPatch {
                     if let Some(added) = line.strip_prefix('+') {
                         out_lines.push(added.to_string());
                     } else if line.starts_with('-') {
-                        // Skip this original line
                         orig_idx += 1;
                     } else {
-                        // Context line (starts with ' ')
                         let ctx = line.strip_prefix(' ').unwrap_or(line);
                         out_lines.push(ctx.to_string());
                         orig_idx += 1;
                     }
                 }
             }
-            // Append remaining original lines after all hunks
             while orig_idx < orig_lines.len() {
                 out_lines.push(orig_lines[orig_idx].to_string());
                 orig_idx += 1;
             }
             out_lines.join("\n")
         } else {
-            // Not a diff — treat as full file replacement
             patch.to_string()
         };
+        if trailing_newline && !result.ends_with('\n') {
+            result.push('\n');
+        }
         match fs::write(path, &result) {
             Ok(_)  => Ok(ToolResult::ok(format!("patched {path}"))),
             Err(e) => Ok(ToolResult::err(format!("apply_patch error: {e}"))),
@@ -215,6 +214,23 @@ mod tests {
     #[tokio::test]
     async fn read_file_missing_returns_error() {
         let res = ReadFile.execute(serde_json::json!({"path": "/nonexistent/file.txt"})).await.unwrap();
+        assert!(res.is_error);
+    }
+
+    #[tokio::test]
+    async fn apply_patch_replaces_lines() {
+        let dir  = tempdir().unwrap();
+        let path = dir.path().join("src.txt");
+        std::fs::write(&path, "line1\nline2\nline3\n").unwrap();
+        let patch = "--- src.txt\n+++ src.txt\n@@ -1,3 +1,3 @@\n line1\n-line2\n+LINE2\n line3\n";
+        let res = ApplyPatch.execute(serde_json::json!({"path": path.to_str().unwrap(), "patch": patch})).await.unwrap();
+        assert!(!res.is_error);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "line1\nLINE2\nline3\n");
+    }
+
+    #[tokio::test]
+    async fn apply_patch_missing_file_returns_error() {
+        let res = ApplyPatch.execute(serde_json::json!({"path": "/no/such/file.txt", "patch": "--- a\n+++ b\n"})).await.unwrap();
         assert!(res.is_error);
     }
 }
