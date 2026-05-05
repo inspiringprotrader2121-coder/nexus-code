@@ -1,0 +1,89 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - name: Build arm64
+        run: cargo build --release --target aarch64-apple-darwin -p nxc
+      - name: Build x86_64
+        run: cargo build --release --target x86_64-apple-darwin -p nxc
+      - name: Create universal binary
+        run: |
+          lipo -create \
+            target/aarch64-apple-darwin/release/nxc \
+            target/x86_64-apple-darwin/release/nxc \
+            -output nxc-universal
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          mkdir dmg-content && cp nxc-universal dmg-content/nxc
+          create-dmg \
+            --volname "Nexus Code" \
+            --window-size 400 200 \
+            --icon-size 64 \
+            "nexus-code.dmg" dmg-content/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: nexus-code.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - run: sudo apt-get install -y musl-tools
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --target x86_64-unknown-linux-musl -p nxc
+      - run: tar czf nxc-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-musl/release nxc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-binary
+          path: nxc-linux-x86_64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p nxc
+      - run: Compress-Archive -Path target/release/nxc.exe -DestinationPath nxc-windows-x86_64.zip
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-binary
+          path: nxc-windows-x86_64.zip
+
+  publish:
+    needs: [build-mac, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            nexus-code.dmg \
+            nxc-linux-x86_64.tar.gz \
+            nxc-windows-x86_64.zip \
+            --title "Nexus Code ${{ github.ref_name }}" \
+            --generate-notes
